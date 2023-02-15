@@ -12,8 +12,8 @@ def averaging(temporal_codes,k):
 
     blurred = cv2.GaussianBlur(result, (5,5), 1)
     sharpened = cv2.addWeighted(result, 1.5, blurred, -0.5, 0)
-    cv2.imwrite("result.jpg",sharpened)
-    return sharpened
+    cv2.imwrite("result.jpg",result)
+    return result
 
 def random_masking_function(input_image,n):
     # Reduce the contrast of the input image
