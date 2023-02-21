@@ -10,8 +10,11 @@ def averaging(temporal_codes,k):
     print(result.dtype)
     print(np.mean(result))
 
-    blurred = cv2.GaussianBlur(result, (5,5), 1)
-    sharpened = cv2.addWeighted(result, 1.5, blurred, -0.5, 0)
+    # blurred = cv2.GaussianBlur(result, (5,5), 1)
+    # sharpened = cv2.addWeighted(result, 1.5, blurred, -0.5, 0)
+    
+    result = (result+0.1)/0.5
+    #_, result = cv2.threshold(result, np.mean(result), 255, cv2.THRESH_BINARY)
     cv2.imwrite("result.jpg",result)
     return result
 

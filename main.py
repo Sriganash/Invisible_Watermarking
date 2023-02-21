@@ -1,10 +1,11 @@
-import math
+import subprocess
 import cv2
 import random_masking as rm
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.fftpack import dct, idct
 import numpy as np    
+import random
 
 
 def embed_visible_watermark(section, watermark, jnd_threshold,suitable_location):
@@ -38,19 +39,6 @@ def embed_visible_watermark(section, watermark, jnd_threshold,suitable_location)
     
     return mean_intensity,cv2.cvtColor(img,cv2.COLOR_HSV2RGB)
 
-# def compute_saliency_modulated_jnd(frame, saliency_map, block_size=8):
-#     # Convert the frame to grayscale if necessary
-#     if len(frame.shape) > 2:
-#         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-#     # Normalize the saliency map to the range [0, 1]
-#     saliency_map = saliency_map.astype(np.float32) / np.max(saliency_map)
-
-#     # Compute the JND map by subtracting the frame from a slightly modified version of itself
-#     jnd_map = np.abs(frame.astype(np.float32) - (frame + 0.2 * saliency_map).astype(np.float32))
-
-#     # Return the average JND value for the entire frame
-#     return np.mean(jnd_map)
 
 def embed_invisible_watermark(block, bit):
     # Embed the bit using bit-wise shifting
@@ -100,40 +88,6 @@ def find_suitable_location(type,keyframe, binary_saliency_map, watermark_size):
         min_variance_index = np.argmin(variances)
         suitable_location = candidate_locations[min_variance_index]
         return suitable_location
-    # else:
-    #     candidate_regions = np.where(binary_saliency_map == 255)
-    #     candidate_locations = [(x, y) for x, y in zip(candidate_regions[0], candidate_regions[1])  if x + A < keyframe.shape[0] and y + B < keyframe.shape[1]]
-    #     print(frame.shape)
-    #     candidate_region = []
-    #     k=l=0
-    #     while k<30:
-    #         if (l+3)%6 == 0:
-    #             overlaps = False
-    #             coord = candidate_locations[l]
-    #             for noc in candidate_region:
-    #                 if coord[0]>=noc[0] and coord[0]<=noc[0]+8 and coord[1]>=noc[1] and coord[1]<=noc[1]+8:
-    #                     overlaps = True
-    #                     break
-    #                 elif coord[0]+8>=noc[0] and coord[0]+8<=noc[0]+8 and coord[1]>=noc[1] and coord[1]<=noc[1]+8:
-    #                     overlaps = True
-    #                     break
-    #                 elif coord[0]>=noc[0] and coord[0]<=noc[0]+8 and coord[1]+8>=noc[1] and coord[1]+8<=noc[1]+8:
-    #                     overlaps = True
-    #                     break
-    #                 elif coord[0]+8>=noc[0] and coord[0]+8<=noc[0]+8 and coord[1]+8>=noc[1] and coord[1]+8<=noc[1]+8:
-    #                     overlaps = True
-    #                     break
-    #             if not overlaps:
-    #                 x, y = coord[0],coord[1]
-    #                 if x+8<keyframe.shape[0] and y+8<keyframe.shape[1]:
-    #                     candidate = (binary_saliency_map[x:x+8, y:y+8])
-    #                     mean = np.mean(candidate)
-    #                     if mean==255:
-    #                         candidate_region.append(coord)
-    #                         k+=1
-    #         l+=1
-    #     return candidate_region
-
 
 def Divide(frame):
     frames = []
@@ -168,48 +122,12 @@ def calculate_binary_saliency_map(image, sigma, T):
     return binary_saliency_map
 
 
-if __name__ == "__main__":
-    logo = cv2.imread("input/new.png")
-    logo = cv2.cvtColor(logo,cv2.COLOR_RGB2GRAY)
-    logo = cv2.resize(logo,(64,64))
-    #print(logo.shape)
-    # cv2.imshow("l",logo)
-    # cv2.waitKey(0)
-
-    clip = cv2.VideoCapture("input/dawn_of_the_7.avi")
-    fps = round(clip.get(cv2.CAP_PROP_FPS))
-    clip_w = clip.get(cv2.CAP_PROP_FRAME_WIDTH)
-    clip_h = clip.get(cv2.CAP_PROP_FRAME_HEIGHT)
-    f = round(clip.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    k = int(str(f**2)[:3])
-
-    temporal_codes = rm.random_masking_function(logo,k)
-
-    key = f//k  
-    print(key)
-    #plt.imshow(temporal_codes[0],cmap="gray")
-    #plt.show()
-    
-    # r=rm.averaging(temporal_codes,f//key)
-    # r = (r+0.1)/0.5
-    #plt.imshow(r,cmap="gray")
-    #plt.show()
-
-
-    w_clip = int(clip.get(cv2. CAP_PROP_FRAME_WIDTH ))
-    h_clip = int(clip.get(cv2. CAP_PROP_FRAME_HEIGHT ))
-    # fourcc = int(clip.get(cv2. CAP_PROP_FOURCC))
-    fourcc = cv2.VideoWriter_fourcc(*'FFV1')
-    print(fourcc, cv2.VideoWriter_fourcc(*'FFV1'))
-    
-    file = cv2.VideoWriter('output/result_dawn_of_the_7.avi', fourcc, fps, (w_clip, h_clip),isColor=True)
+def embed(clip,file,key):
     ret = True
     i=j=0
-    m=1
     while ret:
         ret,frame = clip.read()
-        if(i%(key) == 0 and ret and j<len(temporal_codes)):
+        if(j<len(temporal_codes) and i==key[j] and ret ):
             roi = calculate_binary_saliency_map(frame, sigma=10, T=128)
             location_visible = find_suitable_location('visible',frame,roi,(64,64))
             watermark = cv2.resize(temporal_codes[j],(64,64),interpolation=cv2.INTER_AREA)
@@ -218,7 +136,12 @@ if __name__ == "__main__":
             # y,cr,cb = cv2.split(cv2.cvtColor(section,cv2.COLOR_RGB2YCrCb))
             # mean_intensity = np.mean(y)
             # section = cv2.cvtColor(cv2.merge((y,cr,cb)),cv2.COLOR_YCrCb2RGB)
+            cv2.imshow("original",frame)
+            cv2.waitKey(0)
             mean_intensity,section[:,:,:] = embed_visible_watermark(section,watermark,32,location_visible)
+            
+            cv2.imshow("new",frame)
+            cv2.waitKey(0)
             # y,cr,cb = cv2.split(cv2.cvtColor(section,cv2.COLOR_RGB2YCrCb))
             # print(y)
 
@@ -232,8 +155,9 @@ if __name__ == "__main__":
 
             #Select 30 invisible 8x8 blocks from frames
             l=k=0
+            key_1 = len(key)
             while(l<len(frames) and k<30):
-                if l%key == 0 :
+                if l%key_1 == 0 :
                     x,y = frames[l][0], frames[l][1]
                     section = frame[x:x+8,y:y+8,:]
                     section[:,:,:] = embed_invisible_watermark(section,invisible_value[k])
@@ -243,41 +167,39 @@ if __name__ == "__main__":
             print(".......................")
             # print(selected)
             print(invisible_value,mean_intensity,location_visible[0],location_visible[1])
-            j = j+1
             # cv2.imshow("f",frame)
             # cv2.waitKey(0)
+            j+=1
         file.write(frame)
         i+=1
-        m+=1
-    file.release()
+    print("===========================")
 
-
-    # print("===========================")
-    video = cv2.VideoCapture("output/result_dawn_of_the_7.avi")
+def extract(video,key):
     ret = True
     i=j=0
     m=1
-    
+        
     r = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT ))
     c = int(video.get(cv2. CAP_PROP_FRAME_WIDTH ))
     temporal = []
     n = 0
     while ret:
         ret,frame = video.read()
-        if i%(key)== 0 and ret:
+        if j<len(key) and i==key[j] and ret:
             frames  = Divide(frame)
             selected = ""
             #Select 30 invisible 8x8 blocks from frames
             l=k=0
+            key_1 = len(key)
             while(l<len(frames) and k<30):
-                if l%key == 0 :
+                if l%key_1 == 0 :
                     x,y = frames[l][0], frames[l][1]
                     section = frame[x:x+8,y:y+8,:]
                     # y,cr,cb = cv2.split(cv2.cvtColor(section,cv2.COLOR_RGB2YCrCb))
                     selected += extract_bit(section)
                     k+=1
                 l+=1
-                    
+                        
             mean_intensity = int('0b' + selected[:8],2)
             r1 = int('0b' + selected[8:19],2)
             c1 = int('0b' + selected[19:],2)
@@ -287,9 +209,9 @@ if __name__ == "__main__":
             section = frame[r1:r1+logo.shape[0],c1:c1+logo.shape[1],:]
 
             if r1 > r or c1 > c:
-                i+=1
+                i+=1 
                 continue
-            
+                
 
             section = cv2.cvtColor(section,cv2.COLOR_RGB2HSV)
             # y,cr,cb = cv2.split(section)
@@ -298,15 +220,92 @@ if __name__ == "__main__":
             # print(y)
             y[y >= mean_intensity] = 255
             y[y < mean_intensity] = 0
- 
+    
             temporal.append(y)
             # print(y)
             n+=1
+            j+=1
         i+=1
-        m+=1
+    return temporal, n
+        
+
+def gen_num(num,bound,r):
+    step=bound/num
+    result=[]
+    for i in range(num):
+        x=round(random.uniform((step*i+r),(step*(i+1)-r)))
+        result.append(int(x))
+    return result
+
+if __name__ == "__main__":
+    logo = cv2.imread("input/new.png")
+    logo = cv2.cvtColor(logo,cv2.COLOR_RGB2GRAY)
+    logo = cv2.resize(logo,(64,64))
+    #print(logo.shape)
+    # cv2.imshow("l",logo)
+    # cv2.waitKey(0)
+
+
+    # Read the video
+    input_file = "input/ice.avi"
+    clip = cv2.VideoCapture(input_file)
+    fps = round(clip.get(cv2.CAP_PROP_FPS))
+    clip_w = clip.get(cv2.CAP_PROP_FRAME_WIDTH)
+    clip_h = clip.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    f = round(clip.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    # Extract the audio from the video
+    audio_file = input_file+"audio.m4a"
+    subprocess.call(["ffmpeg", "-i", input_file, "-vn", "-acodec", "copy", audio_file])
+
+    # Creating the temporal codes
+    k = int(str(f**2)[:2])
     
+    delay = 0*fps
+    d = f//(delay+15)
+    temporal_codes = rm.random_masking_function(logo,d)
+
+    # Creating the key
+    key = gen_num(d,f,delay)
+    print(key)
+    #plt.imshow(temporal_codes[0],cmap="gray")
+    #plt.show()
+    
+    # r=rm.averaging(temporal_codes,f//key)
+    # r = (r+0.1)/0.5
+    #plt.imshow(r,cmap="gray")
+    #plt.show()
+
+    # Create the output file
+    output_file = "output/result_ice.mkv"
+    w_clip = int(clip.get(cv2. CAP_PROP_FRAME_WIDTH ))
+    h_clip = int(clip.get(cv2. CAP_PROP_FRAME_HEIGHT ))
+    # fourcc = int(clip.get(cv2. CAP_PROP_FOURCC))
+    fourcc = cv2.VideoWriter_fourcc(*'FFV1')
+    print(fourcc, cv2.VideoWriter_fourcc(*'FFV1'))
+    file = cv2.VideoWriter(output_file, fourcc, fps, (w_clip, h_clip),isColor=True)
+    ret = True
+    i=j=0
+    m=1
+
+    # E#mbedding the temporal codes with input file
+    embed(clip,file,key)
+    clip.release()
+    file.release()
+
+    # Attaching the audio file with newly created video
+    subprocess.call(["ffmpeg", "-i", output_file, "-i", audio_file, "-c:v", \
+                        "ffv1", "-c:a", "aac", "-shortest", "output/final_ice.mkv"])
+
+    
+    
+    # Extracting the temporal codes from the output file
+    output_file = "output/result_ice.mkv"
+    video = cv2.VideoCapture(output_file)
+    temporal,n = extract(video,key)
+
+    # Calculating the watermark from the temporal codes
     r=rm.averaging(temporal,n)
-    r = (r+0.1)/0.5
     cv2.imshow("R",r)
     cv2.waitKey(0)
     plt.imshow(r,cmap="gray")
